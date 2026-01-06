@@ -18,6 +18,16 @@ jobs:
           default=$(echo $scheme_list | ruby -e "require 'json'; puts JSON.parse(STDIN.gets)['project']['targets'][0]")
           echo $default | cat >default
           echo Using default scheme: $default
+      - name: Cache
+        uses: actions/cache@v5.0.1
+        with: 
+          # A list of files, directories, and wildcard patterns to cache and restore
+          path: .
+          # An explicit key for restoring and saving the cache
+          key: test
+          # An ordered multiline string listing the prefix-matched keys, that are used for restoring stale cache if no cache hit occurred for key. Note `cache-hit` returns false in this case.
+          save-always: true
+                    
       - name: Build
         env:
           scheme: ${{ 'default' }}
@@ -42,14 +52,7 @@ jobs:
           if [ $scheme = default ]; then scheme=$(cat default); fi
           if [ "`ls -A | grepy -i \\.xcworkspace\$`" ]; then filetype_parameter="workspace" && file_to_build="`ls -A | grep -i \\.xcworkspace\$`"; else filetype_parameter="project" && file_to_build="`ls -A | grep -i \\.xcodeproj\$`"; fi
           file_to_build=`echo $file_to_build | awk '{$1=$1;print}'`
-          xcodebuild -project appdb.xcodeproj \
-                     -scheme appdb \
-          -"$filetype_parameter" "$file_to_build" \
-          -destination "platform=$platform,name=$device" \
-                     -configuration Release \
-                     clean archive \
-                     -archivePath "$PWD/build1/appdb.xcarchive" \
-                     CODE_SIGNING_ALLOWED=NO
+          xcodebuild build-for-testing -scheme "$scheme" -"$filetype_parameter" "$file_to_build" -destination "platform=$platform,name=$device" -configuration Release clean archive -archivePath "$PWD/build1/appdb.xcarchive" CODE_SIGNING_ALLOWED=NO
       - name: Clean and archive project (unsigned)
         continue-on-error: true
         run: |
@@ -86,7 +89,7 @@ jobs:
         uses: actions/upload-artifact@v4.6.1
         with:
           name: workspace
-          path: $GITHUB_WORKSPACE/workspace.zip
+          path: workspace.zip
           
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4.6.1
