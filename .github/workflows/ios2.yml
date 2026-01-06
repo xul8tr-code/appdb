@@ -1,10 +1,7 @@
-name: iOS starter workflow
+name: Build Unsigned IPA
 
 on:
-  push:
-    branches: [ "api-1.7-update" ]
-  pull_request:
-    branches: [ "api-1.7-update" ]
+  workflow_dispatch:
 
 jobs:
   build:
