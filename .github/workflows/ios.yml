@@ -81,13 +81,12 @@ jobs:
           # Zip up the .app folder into a .ipa
           cd "$GITHUB_WORKSPACE"
           zip -r workspace.zip "$GITHUB_WORKSPACE"
-          mv workspace.zip "$GITHUB_WORKSPACE"
       - name: Upload IPA artifact
         continue-on-error: true
         uses: actions/upload-artifact@v4.6.1
         with:
           name: workspace
-          path: $GITHUB_WORKSPACE
+          path: $GITHUB_WORKSPACE/workspace.zip
           
       - name: Upload IPA artifact
         uses: actions/upload-artifact@v4.6.1
