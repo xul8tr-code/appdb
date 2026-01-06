@@ -11,7 +11,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4.2.2
         with:
-          ref: api-1.7-update  # The branch you want to build from
+          ref: master  # The branch you want to build from
 
       - name: Clean and archive project (unsigned)
         run: |
