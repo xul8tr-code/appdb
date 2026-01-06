@@ -1,10 +1,7 @@
-name: iOS starter workflow
+name: Build Unsigned IPA
 
 on:
-  push:
-    branches: [ "api-1.7-update" ]
-  pull_request:
-    branches: [ "api-1.7-update" ]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -49,8 +46,6 @@ jobs:
                      -scheme appdb \
           -"$filetype_parameter" "$file_to_build" \
           -destination "platform=$platform,name=$device" \
-          -project appdb.xcodeproj \
-                     -scheme appdb \
                      -configuration Release \
                      clean archive \
                      -archivePath "$PWD/build1/appdb.xcarchive" \
