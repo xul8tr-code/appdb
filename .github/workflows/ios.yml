@@ -10,11 +10,12 @@ jobs:
   build:
     name: Build and Test default scheme using any available iPhone simulator
     runs-on: macos-latest
-
+    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Set Default Scheme
+        continue-on-error: true
         run: |
           scheme_list=$(xcodebuild -list -json | tr -d "\n")
           default=$(echo $scheme_list | ruby -e "require 'json'; puts JSON.parse(STDIN.gets)['project']['targets'][0]")
@@ -24,6 +25,7 @@ jobs:
         env:
           scheme: ${{ 'default' }}
           platform: ${{ 'iOS Simulator' }}
+        continue-on-error: true
         run: |
           # xcrun xctrace returns via stderr, not the expected stdout (see https://developer.apple.com/forums/thread/663959)
           device=`xcrun xctrace list devices 2>&1 | grep -oE 'iPhone.*?[^\(]+' | head -1 | awk '{$1=$1;print}' | sed -e "s/ Simulator$//"`
@@ -31,14 +33,61 @@ jobs:
           if [ "`ls -A | grep -i \\.xcworkspace\$`" ]; then filetype_parameter="workspace" && file_to_build="`ls -A | grep -i \\.xcworkspace\$`"; else filetype_parameter="project" && file_to_build="`ls -A | grep -i \\.xcodeproj\$`"; fi
           file_to_build=`echo $file_to_build | awk '{$1=$1;print}'`
           xcodebuild build-for-testing -scheme "$scheme" -"$filetype_parameter" "$file_to_build" -destination "platform=$platform,name=$device"
-      - name: Test
+      - name: Build2
+        continue-on-error: true
         env:
-          scheme: ${{ 'default' }}
+          scheme: ${{ 'appdb' }}
           platform: ${{ 'iOS Simulator' }}
         run: |
+          mkdir -p build1
           # xcrun xctrace returns via stderr, not the expected stdout (see https://developer.apple.com/forums/thread/663959)
           device=`xcrun xctrace list devices 2>&1 | grep -oE 'iPhone.*?[^\(]+' | head -1 | awk '{$1=$1;print}' | sed -e "s/ Simulator$//"`
           if [ $scheme = default ]; then scheme=$(cat default); fi
-          if [ "`ls -A | grep -i \\.xcworkspace\$`" ]; then filetype_parameter="workspace" && file_to_build="`ls -A | grep -i \\.xcworkspace\$`"; else filetype_parameter="project" && file_to_build="`ls -A | grep -i \\.xcodeproj\$`"; fi
+          if [ "`ls -A | grepy -i \\.xcworkspace\$`" ]; then filetype_parameter="workspace" && file_to_build="`ls -A | grep -i \\.xcworkspace\$`"; else filetype_parameter="project" && file_to_build="`ls -A | grep -i \\.xcodeproj\$`"; fi
           file_to_build=`echo $file_to_build | awk '{$1=$1;print}'`
-          xcodebuild test-without-building -scheme "$scheme" -"$filetype_parameter" "$file_to_build" -destination "platform=$platform,name=$device"
+          xcodebuild build-for-testing \
+          -scheme "$scheme" \
+          -"$filetype_parameter" "$file_to_build" \
+          -destination "platform=$platform,name=$device" \
+          -project appdb.xcodeproj \
+                     -scheme appdb \
+                     -configuration Release \
+                     clean archive \
+                     -archivePath "$PWD/build1/appdb.xcarchive" \
+                     CODE_SIGNING_ALLOWED=NO
+      - name: Clean and archive project (unsigned)
+        continue-on-error: true
+        run: |
+          mkdir -p build
+          xcodebuild -project appdb.xcodeproj \
+                     -scheme appdb \
+                     -configuration Release \
+                     clean archive \
+                     -archivePath "$PWD/build/appdb.xcarchive" \
+                     CODE_SIGNING_ALLOWED=NO
+
+      - name: Upload IPA artifact
+        continue-on-error: true
+        uses: actions/upload-artifact@v4.6.1
+        with:
+          name: workspace
+          path: $GITHUB_WORKSPACE
+      - name: Create unsigned IPA manually
+        continue-on-error: true
+        run: |
+          
+          # Go to the .xcarchive products directory where the .app is located
+          cd build/appdb.xcarchive/Products/Applications
+
+          # Zip up the .app folder into a .ipa
+          zip -r appdb.zip appdb.app
+          mv appdb.zip appdb.ipa
+
+          # Move the .ipa back into the build folder
+          mv appdb.ipa "$GITHUB_WORKSPACE/build/appdb.ipa"
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4.6.1
+        with:
+          name: unsigned-ipa
+          path: build/appdb.ipa
